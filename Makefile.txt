@@ -1,0 +1,70 @@
+CXX=g++
+CXXFLAGS=-g -std=c++20 -Wall -Wextra -Wshadow -pedantic
+CPPFLAGS=-I./src
+LDLIBS=-lCatch2Main -lCatch2
+
+BIN=bin
+OBJ=obj
+SRC=src
+
+HDRS=$(wildcard $(SRC)/*.h)
+SRCS=$(wildcard $(SRC)/*.cpp)
+OBJS=$(patsubst $(SRC)/%.cpp, $(OBJ)/%.o, $(SRCS))
+
+TEST=tests
+TESTBIN=tests/bin
+TESTS=$(wildcard $(TEST)/*.cpp)
+TESTOBJS=$(filter-out $(OBJ)/main.o, $(OBJS))
+TESTBINS=$(patsubst $(TEST)/%.cpp, $(TESTBIN)/%, $(TESTS))
+
+MAIN=$(BIN)/main
+
+.PHONY : all main tests run_main run_tests run_tests_verbose memcheck_main clean
+
+all : $(MAIN) $(TESTBIN) $(TESTBINS)
+
+main : $(MAIN)
+
+run_main : $(MAIN)
+	./$(MAIN)
+
+memcheck_main : $(MAIN)
+	valgrind --leak-check=yes ./$(MAIN)
+
+$(MAIN) : $(BIN) $(OBJS)
+	$(CXX) $(CXXFLAGS) -Weffc++ -o $@ $(OBJS)
+
+$(OBJ)/main.o : $(SRC)/main.cpp $(HDRS) $(OBJ)
+	$(CXX) $(CXXFLAGS) -Weffc++ -c $< -o $@
+
+$(OBJ)/%.o : $(SRC)/%.cpp $(SRC)/%.h $(OBJ)
+	$(CXX) $(CXXFLAGS) -Weffc++ -c $< -o $@
+
+$(OBJ)/%.o : $(SRC)/%.cpp $(OBJ)
+	$(CXX) $(CXXFLAGS) -Weffc++ -c $< -o $@
+
+$(BIN) : 
+	mkdir $(@)
+
+$(OBJ) : 
+	mkdir $(@)
+
+tests : $(TESTBIN) $(TESTBINS)
+
+run_tests : $(TESTBIN) $(TESTBINS)
+	for test in $(TESTBINS) ; do ./$$test ; done
+
+run_tests_verbose : $(TESTBIN) $(TESTBINS)
+	for test in $(TESTBINS) ; do ./$$test -s ; done
+
+memcheck_tests : $(TESTBIN) $(TESTBINS)
+	for test in $(TESTBINS) ; do valgrind --leak-check=yes ./$$test ; done
+
+$(TESTBIN)/% : $(TEST)/%.cpp $(TESTOBJS) $(HDRS)
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $< $(TESTOBJS) -o $@ $(LDLIBS)
+
+$(TESTBIN) : 
+	mkdir -p $(@)
+
+clean:
+	$(RM) -r $(BIN)/* $(OBJ)/* $(TESTBIN)/*
